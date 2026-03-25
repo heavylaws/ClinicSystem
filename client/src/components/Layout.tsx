@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 import { Toaster } from "./ui/Toaster";
 import { useToast } from "./ui/use-toast";
 import { useWebSocket } from "../lib/ws";
+import Chatbot from "./Chatbot";
 
 interface LayoutProps {
     user: any;
@@ -103,6 +104,7 @@ export default function Layout({ user }: LayoutProps) {
                 <Outlet />
             </main>
             <Toaster />
+            <Chatbot />
         </div>
     );
 }

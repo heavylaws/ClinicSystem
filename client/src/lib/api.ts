@@ -282,4 +282,14 @@ export const api = {
         delete: (id: string) =>
             request(`/referrals/${id}`, { method: "DELETE" }),
     },
+
+    // ─── AI ───────────────────────────────────────────────────────────
+
+    ai: {
+        chat: (message: string, history: any[]) =>
+            request<{ text: string }>("/ai/chat", {
+                method: "POST",
+                body: JSON.stringify({ message, history }),
+            }),
+    },
 };

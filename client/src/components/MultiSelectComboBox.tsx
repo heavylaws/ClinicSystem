@@ -146,13 +146,13 @@ export default function MultiSelectComboBox({
             {showDropdown && (
                 <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setShowDropdown(false)}>
                     <div
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200"
                         onClick={(e) => e.stopPropagation()} // Prevent clicks inside from closing
                     >
                         {/* Header & Search */}
                         <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex flex-col gap-4">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-2xl font-bold text-gray-800 capitalize">
+                                <h2 className="text-3xl font-extrabold text-gray-800 capitalize">
                                     Select {category.replace("_", " ")}
                                 </h2>
                                 <button
@@ -174,7 +174,7 @@ export default function MultiSelectComboBox({
                                     onChange={(e) => setInputValue(e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     placeholder="Search or type to add new..."
-                                    className="w-full bg-white border-2 border-gray-200 text-gray-800 rounded-xl pl-12 pr-4 py-4 text-lg focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-100 transition shadow-sm"
+                                    className="w-full bg-white border-2 border-gray-200 text-gray-800 rounded-xl pl-12 pr-4 py-5 text-xl focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-100 transition shadow-sm"
                                     autoFocus
                                 />
                             </div>
@@ -185,7 +185,7 @@ export default function MultiSelectComboBox({
                                     {selectedItems.map((item) => (
                                         <span
                                             key={item}
-                                            className="inline-flex items-center gap-1.5 bg-primary-100 text-primary-800 px-3 py-1.5 rounded-lg text-sm font-bold border border-primary-200"
+                                            className="inline-flex items-center gap-1.5 bg-primary-100 text-primary-800 px-4 py-2 rounded-lg text-base font-bold border border-primary-200"
                                         >
                                             {item}
                                             <button
@@ -216,15 +216,15 @@ export default function MultiSelectComboBox({
                             ) : (
                                 <div>
                                     {inputValue === "" && (
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-2 mb-3">Popular Options</p>
+                                        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest pl-2 mb-4">Popular Options</p>
                                     )}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {suggestions.map((s, i) => {
                                             const isAlreadySelected = selectedItems.includes(s.term);
                                             return (
                                                 <div
                                                     key={s.id || `new-${s.term}`}
-                                                    className={`px-4 py-3 rounded-xl cursor-pointer flex items-start justify-between gap-3 transition-all border min-h-[56px] ${i === activeIndex ? "bg-primary-50 border-primary-200 shadow-sm" : isAlreadySelected ? "bg-primary-50/50 border-primary-100 opacity-70" : "bg-white border-gray-100 hover:border-primary-300 hover:shadow-md"}`}
+                                                    className={`px-5 py-4 rounded-xl cursor-pointer flex items-start justify-between gap-3 transition-all border min-h-[64px] ${i === activeIndex ? "bg-primary-50 border-primary-200 shadow-sm" : isAlreadySelected ? "bg-primary-50/50 border-primary-100 opacity-70" : "bg-white border-gray-100 hover:border-primary-300 hover:shadow-md"}`}
                                                     onClick={() => !isAlreadySelected && selectTerm(s.term)}
                                                     onMouseEnter={() => setActiveIndex(i)}
                                                 >
@@ -234,7 +234,7 @@ export default function MultiSelectComboBox({
                                                         ) : (
                                                             <div className={`w-5 h-5 flex-shrink-0 mt-0.5 rounded border-2 ${i === activeIndex ? "border-primary-500" : "border-gray-300"}`}></div>
                                                         )}
-                                                        <span className={`text-base leading-snug break-words ${isAlreadySelected ? "text-primary-700 font-semibold" : "text-gray-700 font-medium"}`}>
+                                                        <span className={`text-lg leading-snug break-words ${isAlreadySelected ? "text-primary-700 font-bold" : "text-gray-700 font-semibold"}`}>
                                                             {s.isNew ? (
                                                                 <span className="flex items-center gap-2">
                                                                     <span className="text-primary-600 font-bold bg-primary-100 px-2 py-0.5 rounded text-sm whitespace-nowrap">Add New</span>
@@ -246,7 +246,7 @@ export default function MultiSelectComboBox({
                                                         </span>
                                                     </div>
                                                     {!s.isNew && s.usageCount > 0 && (
-                                                        <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold bg-gray-100 px-2.5 py-1 rounded-full flex-shrink-0 mt-0.5 whitespace-nowrap">
+                                                        <span className="text-xs uppercase tracking-wider text-gray-500 font-bold bg-gray-100 px-3 py-1.5 rounded-full flex-shrink-0 mt-0.5 whitespace-nowrap">
                                                             {s.usageCount} uses
                                                         </span>
                                                     )}
@@ -262,13 +262,13 @@ export default function MultiSelectComboBox({
                         <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3">
                             <button
                                 onClick={() => setShowDropdown(false)}
-                                className="px-6 py-3 font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
+                                className="px-8 py-3.5 text-lg font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => setShowDropdown(false)}
-                                className="px-8 py-3 font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg transition"
+                                className="px-10 py-3.5 text-lg font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg transition"
                             >
                                 Done
                             </button>
