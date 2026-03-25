@@ -1,0 +1,209 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/api";
+import AutocompleteInput from "../components/AutocompleteInput";
+
+export default function Reports() {
+    // ... existing queries
+
+    // Custom Report State
+    const [startDate, setStartDate] = useState(
+        new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split("T")[0]
+    );
+    const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+    const [medicationFilter, setMedicationFilter] = useState("");
+    const [showCustomReport, setShowCustomReport] = useState(false);
+
+    const { data: user } = useQuery({ queryKey: ["auth", "me"], queryFn: api.auth.me });
+
+    const { data: prescriptionReport, refetch: generateReport, isFetching: reportLoading } = useQuery({
+        queryKey: ["reports", "prescriptions", startDate, endDate, medicationFilter],
+        queryFn: () => api.reports.prescriptions(startDate, endDate, medicationFilter),
+        enabled: false, // Only run when button clicked
+    });
+
+    // ... existing loading check
+
+    return (
+        <div className="max-w-7xl mx-auto px-6 py-8">
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-8">📊 Clinic Reports</h1>
+
+            {/* ─── Daily Summary ─── */}
+            {/* ... existing summary cards */}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                {/* ─── Top Diagnoses ─── */}
+                {/* ... existing diagnoses */}
+
+                {/* ─── Top Medications ─── */}
+                {/* ... existing medications */}
+            </div>
+
+            {/* ─── Custom Reports ─── */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6">🔍 Custom Prescription Report</h2>
+
+                <div className="flex flex-wrap gap-4 items-end mb-8">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Start Date</label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">End Date</label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                        />
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Medication (Optional)</label>
+                        <AutocompleteInput
+                            category="medication"
+                            value={medicationFilter}
+                            onChange={setMedicationFilter}
+                            placeholder="Filter by medication name..."
+                            className="px-4 py-2 text-base border rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+                        />
+                    </div>
+                    <button
+                        onClick={() => {
+                            setShowCustomReport(true);
+                            generateReport();
+                        }}
+                        className="px-6 py-2 bg-primary-600 text-white font-bold rounded-lg hover:bg-primary-700 transition"
+                    >
+                        Generate Report
+                    </button>
+                </div>
+
+                {showCustomReport && (
+                    <div>
+                        {reportLoading ? (
+                            <div className="py-12 text-center text-gray-500">Loading data...</div>
+                        ) : !prescriptionReport || prescriptionReport.rows?.length === 0 ? (
+                            <div className="py-12 text-center text-gray-500 bg-gray-50 rounded-lg">
+                                No prescriptions found for this criteria.
+                            </div>
+                        ) : (
+                            <>
+                                {/* ─── Summary Stats Banner ─── */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                    <div className="bg-primary-50 border border-primary-200 rounded-xl p-5 text-center">
+                                        <p className="text-3xl font-extrabold text-primary-700">
+                                            {prescriptionReport.totalInRange}
+                                        </p>
+                                        <p className="text-sm text-primary-500 mt-1">
+                                            Prescriptions in range
+                                        </p>
+                                    </div>
+                                    {prescriptionReport.medication && (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
+                                            <p className="text-3xl font-extrabold text-amber-700">
+                                                {prescriptionReport.totalAllTime}
+                                            </p>
+                                            <p className="text-sm text-amber-600 mt-1">
+                                                Total all-time for "{prescriptionReport.medication}"
+                                            </p>
+                                        </div>
+                                    )}
+                                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-5 text-center">
+                                        <p className="text-3xl font-extrabold text-teal-700">
+                                            {prescriptionReport.uniquePatients}
+                                        </p>
+                                        <p className="text-sm text-teal-500 mt-1">
+                                            Unique patients
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* ─── Detail Table ─── */}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-50 text-gray-700 border-b border-gray-200">
+                                                <th className="py-3 px-4 font-semibold">Date</th>
+                                                <th className="py-3 px-4 font-semibold">Patient</th>
+                                                <th className="py-3 px-4 font-semibold">File #</th>
+                                                <th className="py-3 px-4 font-semibold">Medication</th>
+                                                <th className="py-3 px-4 font-semibold">Dosage</th>
+                                                <th className="py-3 px-4 font-semibold">Frequency</th>
+                                                <th className="py-3 px-4 font-semibold">Duration</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {prescriptionReport.rows.map((rx: any) => (
+                                                <tr key={rx.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                                    <td className="py-3 px-4">
+                                                        {new Date(rx.visitDate).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="py-3 px-4 font-medium text-primary-700">
+                                                        {rx.patientName}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-gray-500">
+                                                        #{rx.patientFileNumber}
+                                                    </td>
+                                                    <td className="py-3 px-4 font-semibold text-gray-800">
+                                                        {rx.medicationName}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-gray-600">{rx.dosage || "—"}</td>
+                                                    <td className="py-3 px-4 text-gray-600">{rx.frequency || "—"}</td>
+                                                    <td className="py-3 px-4 text-gray-600">{rx.duration || "—"}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ─── Data Export ─── */}
+            {user?.role === "admin" && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mt-8">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">📤 Data Export</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <a
+                            href="/api/reports/export/patients"
+                            className="flex items-center gap-3 p-5 bg-primary-50 rounded-xl hover:bg-primary-100 transition border border-primary-200"
+                        >
+                            <span className="text-3xl">👥</span>
+                            <div>
+                                <p className="font-bold text-primary-700">Export Patients</p>
+                                <p className="text-sm text-primary-500">Download all patient records as CSV</p>
+                            </div>
+                        </a>
+                        <a
+                            href={`/api/reports/export/billing?startDate=${startDate}&endDate=${endDate}`}
+                            className="flex items-center gap-3 p-5 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition border border-emerald-200"
+                        >
+                            <span className="text-3xl">💰</span>
+                            <div>
+                                <p className="font-bold text-emerald-700">Export Billing</p>
+                                <p className="text-sm text-emerald-500">Download billing records as CSV ({startDate} — {endDate})</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SummaryCard({ label, value, sub, color }: any) {
+    return (
+        <div className={`rounded-2xl p-6 ${color}`}>
+            <p className="text-sm font-medium opacity-80 mb-1">{label}</p>
+            <p className="text-3xl font-extrabold">{value}</p>
+            <p className="text-xs opacity-60 mt-1">{sub}</p>
+        </div>
+    );
+}

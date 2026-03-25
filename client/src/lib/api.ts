@@ -1,0 +1,285 @@
+const API_BASE = "/api";
+
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+    const res = await fetch(`${API_BASE}${url}`, {
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json",
+            ...options?.headers,
+        },
+        ...options,
+    });
+
+    if (!res.ok) {
+        const error = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(error.error || error.message || "Request failed");
+    }
+
+    return res.json();
+}
+
+// ─── Auth ───────────────────────────────────────────────────────────
+
+export const api = {
+    auth: {
+        login: (username: string, password: string) =>
+            request("/auth/login", {
+                method: "POST",
+                body: JSON.stringify({ username, password }),
+            }),
+        logout: () => request("/auth/logout", { method: "POST" }),
+        me: () => request<any>("/auth/me"),
+        bootstrap: () => request("/auth/bootstrap", { method: "POST" }),
+    },
+
+    // ─── Patients ─────────────────────────────────────────────────────
+
+    patients: {
+        search: async (params: string | { firstName?: string; middleName?: string; lastName?: string; lastVisit?: Date }) => {
+            let query = "";
+            if (typeof params === "string") {
+                query = `q=${encodeURIComponent(params)}`;
+            } else {
+                const parts = [];
+                if (params.firstName) parts.push(`firstName=${encodeURIComponent(params.firstName)}`);
+                if (params.middleName) parts.push(`middleName=${encodeURIComponent(params.middleName)}`); // Mapping middle name to backend expectation which might be fatherName or similar
+                if (params.lastName) parts.push(`lastName=${encodeURIComponent(params.lastName)}`);
+                if (params.lastVisit) parts.push(`lastVisit=${params.lastVisit.toISOString()}`); // Sending ISO string
+                query = parts.join("&");
+            }
+            const res = await fetch(`/api/patients/search?${query}`);
+            if (!res.ok) throw new Error("Failed to search patients");
+            return res.json();
+        },
+        get: (id: string) => request<any>(`/patients/${id}`),
+        list: (page = 1, limit = 30) =>
+            request<{ patients: any[]; total: number }>(`/patients?page=${page}&limit=${limit}`),
+        create: (data: any) =>
+            request<any>("/patients", { method: "POST", body: JSON.stringify(data) }),
+        update: (id: string, data: any) =>
+            request<any>(`/patients/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    },
+
+    // ─── Visits ───────────────────────────────────────────────────────
+
+    visits: {
+        queue: () => request<any[]>("/visits/queue"),
+        get: (id: string) => request<any>(`/visits/${id}`),
+        forPatient: (patientId: string) => request<any[]>(`/visits/patient/${patientId}`),
+        delete: (id: string) =>
+            request(`/visits/${id}`, { method: "DELETE" }),
+        create: (data: any) =>
+            request<any>("/visits", { method: "POST", body: JSON.stringify(data) }),
+        updateStatus: (id: string, status: string) =>
+            request<any>(`/visits/${id}/status`, {
+                method: "PATCH",
+                body: JSON.stringify({ status }),
+            }),
+        updateNotes: (id: string, data: any) =>
+            request<any>(`/visits/${id}/notes`, {
+                method: "PATCH",
+                body: JSON.stringify(data),
+            }),
+        addDiagnosis: (visitId: string, data: any) =>
+            request<any>(`/visits/${visitId}/diagnoses`, {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        deleteDiagnosis: (id: string) =>
+            request(`/visits/diagnoses/${id}`, { method: "DELETE" }),
+        addPrescription: (visitId: string, data: any) =>
+            request<any>(`/visits/${visitId}/prescriptions`, {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        deletePrescription: (id: string) =>
+            request(`/visits/prescriptions/${id}`, { method: "DELETE" }),
+        addLabOrder: (visitId: string, data: any) =>
+            request<any>(`/visits/${visitId}/lab-orders`, {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        deleteLabOrder: (id: string) =>
+            request(`/visits/lab-orders/${id}`, { method: "DELETE" }),
+        addProcedure: (visitId: string, data: any) =>
+            request<any>(`/visits/${visitId}/procedures`, {
+                method: "POST",
+                body: JSON.stringify(data),
+            }),
+        deleteProcedure: (id: string) =>
+            request(`/visits/procedures/${id}`, { method: "DELETE" }),
+    },
+
+    // ─── Autocomplete ─────────────────────────────────────────────────
+
+    autocomplete: {
+        search: (category: string, q: string) =>
+            request<any[]>(`/autocomplete?category=${category}&q=${encodeURIComponent(q)}`),
+        popular: (category: string) =>
+            request<any[]>(`/autocomplete/popular/${category}`),
+    },
+
+    // ─── Billing ──────────────────────────────────────────────────────
+
+    billing: {
+        forVisit: (visitId: string) => request<any>(`/billing/visit/${visitId}`),
+        get: (startDate?: string, endDate?: string) => {
+            const params = new URLSearchParams();
+            if (startDate) params.append("startDate", startDate);
+            if (endDate) params.append("endDate", endDate);
+            return request<any>(`/billing?${params.toString()}`);
+        },
+        create: (data: any) =>
+            request<any>("/billing", { method: "POST", body: JSON.stringify(data) }),
+        save: (data: any) =>
+            request<any>("/billing", { method: "POST", body: JSON.stringify(data) }),
+        addPayment: (data: any) =>
+            request<any>("/billing/payments", { method: "POST", body: JSON.stringify(data) }),
+    },
+
+    // ─── Reports ──────────────────────────────────────────────────────
+
+    reports: {
+        daily: (date?: string) =>
+            request<any>(`/reports/daily${date ? `?date=${date}` : ""}`),
+        monthly: (month?: number, year?: number) => {
+            const params = new URLSearchParams();
+            if (month) params.set("month", month.toString());
+            if (year) params.set("year", year.toString());
+            return request<any>(`/reports/monthly?${params}`);
+        },
+        topDiagnoses: () => request<any[]>("/reports/top-diagnoses"),
+        topMedications: () => request<any[]>("/reports/top-medications"),
+        prescriptions: (startDate: string, endDate: string, medication?: string) => {
+            const params = new URLSearchParams();
+            params.set("startDate", startDate);
+            params.set("endDate", endDate);
+            if (medication) params.set("medication", medication);
+            return request<any>(`/reports/prescriptions?${params}`);
+        },
+    },
+
+    // ─── Appointments ─────────────────────────────────────────────────
+
+    appointments: {
+        list: (date: string) => request<any[]>(`/appointments?date=${date}`),
+        range: (from: string, to: string) =>
+            request<any[]>(`/appointments?from=${from}&to=${to}`),
+        forPatient: (patientId: string) =>
+            request<any[]>(`/appointments/patient/${patientId}`),
+        create: (data: any) =>
+            request<any>("/appointments", { method: "POST", body: JSON.stringify(data) }),
+        update: (id: string, data: any) =>
+            request<any>(`/appointments/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+        updateStatus: (id: string, status: string) =>
+            request<any>(`/appointments/${id}/status`, {
+                method: "PATCH",
+                body: JSON.stringify({ status }),
+            }),
+        delete: (id: string) =>
+            request(`/appointments/${id}`, { method: "DELETE" }),
+    },
+
+    // ─── Images ───────────────────────────────────────────────────────
+
+    images: {
+        forPatient: (patientId: string) =>
+            request<any[]>(`/images/${patientId}`),
+        upload: async (patientId: string, file: File, visitId?: string, caption?: string) => {
+            const formData = new FormData();
+            formData.append("image", file);
+            if (visitId) formData.append("visitId", visitId);
+            if (caption) formData.append("caption", caption);
+
+            const res = await fetch(`/api/images/${patientId}/upload`, {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: res.statusText }));
+                throw new Error(err.error || "Upload failed");
+            }
+            return res.json();
+        },
+        delete: (id: string) =>
+            request(`/images/${id}`, { method: "DELETE" }),
+    },
+
+    // ─── Users (Admin) ────────────────────────────────────────────────
+
+    users: {
+        list: () => request<any[]>("/users"),
+        create: (data: any) =>
+            request<any>("/users", { method: "POST", body: JSON.stringify(data) }),
+        update: (id: string, data: any) =>
+            request<any>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+        resetPassword: (id: string, password: string) =>
+            request(`/users/${id}/reset-password`, {
+                method: "PATCH",
+                body: JSON.stringify({ password }),
+            }),
+        changePassword: (currentPassword: string, newPassword: string) =>
+            request("/users/change-password", {
+                method: "PATCH",
+                body: JSON.stringify({ currentPassword, newPassword }),
+            }),
+    },
+
+    // ─── Settings ─────────────────────────────────────────────────────
+
+    settings: {
+        get: () => request<Record<string, string>>("/settings"),
+        update: (data: Record<string, string>) =>
+            request<Record<string, string>>("/settings", {
+                method: "PUT",
+                body: JSON.stringify(data),
+            }),
+        restore: async (file: File) => {
+            const formData = new FormData();
+            formData.append("backup", file);
+
+            const res = await fetch("/api/settings/restore", {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: res.statusText }));
+                throw new Error(err.error || "Restore failed");
+            }
+
+            return res; // Returning the raw Response to allow streaming the body
+        },
+    },
+
+    // ─── Follow-ups ───────────────────────────────────────────────────
+
+    followUps: {
+        forPatient: (patientId: string) =>
+            request<any[]>(`/followups/patient/${patientId}`),
+        upcoming: () => request<any[]>("/followups/upcoming"),
+        overdue: () => request<any[]>("/followups/overdue"),
+        create: (data: any) =>
+            request<any>("/followups", { method: "POST", body: JSON.stringify(data) }),
+        update: (id: string, data: any) =>
+            request<any>(`/followups/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+        delete: (id: string) =>
+            request(`/followups/${id}`, { method: "DELETE" }),
+    },
+
+    // ─── Referrals ────────────────────────────────────────────────────
+
+    referrals: {
+        forPatient: (patientId: string) =>
+            request<any[]>(`/referrals/patient/${patientId}`),
+        pending: () => request<any[]>("/referrals/pending"),
+        create: (data: any) =>
+            request<any>("/referrals", { method: "POST", body: JSON.stringify(data) }),
+        update: (id: string, data: any) =>
+            request<any>(`/referrals/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+        delete: (id: string) =>
+            request(`/referrals/${id}`, { method: "DELETE" }),
+    },
+};

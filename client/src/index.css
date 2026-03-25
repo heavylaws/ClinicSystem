@@ -1,0 +1,215 @@
+@import "tailwindcss";
+
+@theme {
+  /* ─── Clinical Color Palette ─── */
+  --color-primary-50: #eff8ff;
+  --color-primary-100: #dbeffe;
+  --color-primary-200: #bfdffd;
+  --color-primary-300: #93c9fc;
+  --color-primary-400: #60abf8;
+  --color-primary-500: #3b8af4;
+  --color-primary-600: #256ce9;
+  --color-primary-700: #1d57d6;
+  --color-primary-800: #1e47ad;
+  --color-primary-900: #1e3f88;
+  --color-primary-950: #172853;
+
+  --color-accent-50: #f0fdf4;
+  --color-accent-100: #dcfce7;
+  --color-accent-200: #bbf7d0;
+  --color-accent-300: #86efac;
+  --color-accent-400: #4ade80;
+  --color-accent-500: #22c55e;
+  --color-accent-600: #16a34a;
+  --color-accent-700: #15803d;
+  --color-accent-800: #166534;
+  --color-accent-900: #14532d;
+
+  --color-warm-50: #fffbeb;
+  --color-warm-100: #fef3c7;
+  --color-warm-200: #fde68a;
+  --color-warm-300: #fcd34d;
+  --color-warm-400: #fbbf24;
+  --color-warm-500: #f59e0b;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  /* ─── Typography ─── */
+  --font-sans: 'Inter', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
+
+  /* ─── Sizing (Standardized) ─── */
+  --text-body: 0.9375rem;
+  /* 15px */
+  --text-lg: 1.0625rem;
+  /* 17px */
+  --text-xl: 1.125rem;
+  /* 18px */
+  --text-2xl: 1.25rem;
+  /* 20px */
+  --text-3xl: 1.5rem;
+  /* 24px */
+}
+
+/* ─── Base Styles ─── */
+
+* {
+  box-sizing: border-box;
+}
+
+/* html { font-size: 18px; Removed to allow browser default } */
+
+body {
+  font-family: var(--font-sans);
+  background: #f8fafc;
+  color: #1e293b;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Large, Readable Inputs ─── */
+
+input,
+select,
+textarea {
+  font-size: 0.9375rem !important;
+  /* Reduced to 15px */
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 0.375rem !important;
+}
+
+button {
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+/* ─── High Contrast Focus ─── */
+
+*:focus-visible {
+  outline: 3px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+/* ─── Scrollbar ─── */
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* ─── Visit Timeline ─── */
+
+.timeline-entry {
+  position: relative;
+  padding-left: 2rem;
+  padding-bottom: 1.5rem;
+  border-left: 3px solid var(--color-primary-200);
+}
+
+.timeline-entry:last-child {
+  border-left-color: transparent;
+}
+
+.timeline-entry::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 0.25rem;
+  width: 14px;
+  height: 14px;
+  background: var(--color-primary-500);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 0 0 2px var(--color-primary-200);
+}
+
+.timeline-entry.active::before {
+  background: var(--color-accent-500);
+  box-shadow: 0 0 0 2px var(--color-accent-200);
+}
+
+/* ─── Autocomplete Dropdown ─── */
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 2px solid var(--color-primary-200);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.autocomplete-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-size: 1.125rem;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.1s;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.active {
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+/* ─── Print ─── */
+
+@media print {
+  body {
+    background: white;
+    font-size: 12pt;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ─── Queue Status Colors ─── */
+
+.status-queued {
+  background: var(--color-warm-100);
+  color: var(--color-warm-500);
+}
+
+.status-in_progress {
+  background: var(--color-primary-100);
+  color: var(--color-primary-700);
+}
+
+.status-completed {
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+}
+
+.status-billed {
+  background: #f1f5f9;
+  color: #64748b;
+}
