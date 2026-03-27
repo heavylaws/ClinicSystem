@@ -12,7 +12,7 @@ router.use(requireAuth);
 
 router.get("/search", async (req, res) => {
     try {
-        const { firstName, middleName, lastName, lastVisit, q } = req.query;
+        const { firstName, middleName, lastName, lastVisit, q, sortBy, order } = req.query;
 
         // If no params, return empty
         if (!firstName && !middleName && !lastName && !lastVisit && (!q || (q as string).length < 1)) {
@@ -20,16 +20,15 @@ router.get("/search", async (req, res) => {
         }
 
         const conditions = [];
+        const isSearchMode = !!(firstName || middleName || lastName || lastVisit || q);
 
         if (firstName) conditions.push(ilike(patients.firstName, `%${firstName}%`));
-        if (middleName) conditions.push(ilike(patients.fatherName, `%${middleName}%`)); // Assuming fatherName is mapped to middleName conceptually in this context, or is the middle name
+        if (middleName) conditions.push(ilike(patients.fatherName, `%${middleName}%`));
         if (lastName) conditions.push(ilike(patients.lastName, `%${lastName}%`));
 
         if (q) {
             const queryStr = q as string;
             const words = queryStr.trim().split(/\s+/).filter(w => w.length > 0);
-
-            // For each word in the query, it must match AT LEAST ONE of the following fields:
             const wordConditions = words.map(word => {
                 const pattern = `%${word}%`;
                 return or(
@@ -40,40 +39,54 @@ router.get("/search", async (req, res) => {
                     sql`CAST(${patients.fileNumber} AS TEXT) LIKE ${pattern}`
                 );
             });
-
-            // Ensure ALL words in the search query find a match across the fields
             if (wordConditions.length > 0) {
                 conditions.push(and(...wordConditions));
             }
         }
 
-        // Date filter requires joining with visits or using a subquery/EXISTS
-        // Simpler approach: Filter by patients who have a visit on that date
-        let dateCondition = undefined;
         if (lastVisit) {
-            // This is a bit complex with just a WHERE clause on patients table.
-            // We need to check if ANY visit matches the date.
-            // Using a subquery for existence
             const searchDate = new Date(lastVisit as string);
             const startOfDay = new Date(searchDate.setHours(0, 0, 0, 0));
             const endOfDay = new Date(searchDate.setHours(23, 59, 59, 999));
-
-            // We use key 'in' query for simplicity with the current Drizzle setup
-            // "patient.id IN (SELECT patientId FROM visits WHERE startedAt BETWEEN start and end)"
-
-            // However, constructing this purely with the query builder's `inArray` might be tricky without a separate query execution.
-            // Let's use `exists` if possible, or just exact match on the patient's computed lastVisit if we had it, but we don't store it on patient.
-            // A raw SQL within the where clause is often easiest for "id IN (...)"
-
-            // Constructing the condition:
-            dateCondition = sql`EXISTS (
+            conditions.push(sql`EXISTS (
                 SELECT 1 FROM ${visits} 
                 WHERE ${visits.patientId} = ${patients.id} 
                 AND ${visits.startedAt} >= ${startOfDay.toISOString()} 
                 AND ${visits.startedAt} <= ${endOfDay.toISOString()}
-             )`;
+             )`);
+        }
 
-            conditions.push(dateCondition);
+        // Sorting logic
+        const sortOrder = order === "desc" ? desc : (t: any) => t;
+        let orderByClause: any[] = [];
+
+        // Relevance scoring for search
+        if (isSearchMode && !sortBy) {
+            // Default search sorting: prioritize "starts with"
+            const searchVal = (firstName as string) || (q as string);
+            if (searchVal) {
+                orderByClause.push(sql`CASE WHEN ${patients.firstName} ILIKE ${searchVal + "%"} THEN 0 ELSE 1 END`);
+            }
+            orderByClause.push(patients.firstName, patients.lastName);
+        } else {
+            if (sortBy === "name") {
+                orderByClause = [sortOrder(patients.firstName), sortOrder(patients.lastName)];
+            } else if (sortBy === "fileNumber") {
+                orderByClause = [sortOrder(patients.fileNumber)];
+            } else if (sortBy === "phone") {
+                orderByClause = [sortOrder(patients.phone)];
+            } else if (sortBy === "city") {
+                orderByClause = [sortOrder(patients.city)];
+            } else if (sortBy === "updatedAt") {
+                orderByClause = [sortOrder(patients.updatedAt)];
+            } else if (sortBy === "visits") {
+                orderByClause = [sortOrder(count(visits.id))];
+            } else if (sortBy === "lastVisit") {
+                orderByClause = [sortOrder(sql`MAX(${visits.startedAt})`)];
+            } else {
+                // Default fallback
+                orderByClause = [patients.firstName, patients.lastName];
+            }
         }
 
         const result = await db
@@ -85,13 +98,12 @@ router.get("/search", async (req, res) => {
             .leftJoin(visits, eq(visits.patientId, patients.id))
             .where(and(...conditions))
             .groupBy(patients.id)
-            .orderBy(patients.lastName, patients.firstName)
-            .limit(50);
+            .orderBy(...orderByClause)
+            .limit(100);
 
-        // Flatten result
         const flattened = result.map(({ patient, visitCount }) => ({
             ...patient,
-            visitCount,
+            visitCount: Number(visitCount),
         }));
 
         res.json(flattened);
@@ -112,7 +124,6 @@ router.get("/:id", async (req, res) => {
 
         if (!patient) return res.status(404).json({ error: "Patient not found" });
 
-        // Get visit count
         const [{ count: visitCount }] = await db
             .select({ count: count() })
             .from(visits)
@@ -130,6 +141,8 @@ router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 30;
+        const sortBy = (req.query.sortBy as string) || "lastVisit";
+        const order = (req.query.order as string) || "desc";
         const offset = (page - 1) * limit;
 
         // Subquery to get the latest visit date for each patient
@@ -142,24 +155,54 @@ router.get("/", async (req, res) => {
             .groupBy(visits.patientId)
             .as("last_visits");
 
+        // Subquery to get the total visit count for each patient
+        const visitCountSq = db
+            .select({
+                patientId: visits.patientId,
+                count: count().as("visitCount"),
+            })
+            .from(visits)
+            .groupBy(visits.patientId)
+            .as("visit_counts");
+
+        // Sorting logic for list
+        const sortOrder = order === "desc" ? desc : (t: any) => t;
+        let orderByClause: any[] = [sql`${lastVisitSq.lastVisit} DESC NULLS LAST`, desc(patients.updatedAt)];
+
+        if (sortBy === "name") {
+            orderByClause = [sortOrder(patients.lastName), sortOrder(patients.firstName)];
+        } else if (sortBy === "fileNumber") {
+            orderByClause = [sortOrder(patients.fileNumber)];
+        } else if (sortBy === "phone") {
+            orderByClause = [sortOrder(patients.phone)];
+        } else if (sortBy === "city") {
+            orderByClause = [sortOrder(patients.city)];
+        } else if (sortBy === "lastVisit") {
+            orderByClause = [sortOrder(lastVisitSq.lastVisit)];
+        } else if (sortBy === "visits") {
+            orderByClause = [sortOrder(visitCountSq.count)];
+        }
+
         const result = await db
             .select({
                 patient: patients,
                 lastVisit: lastVisitSq.lastVisit,
+                visitCount: visitCountSq.count,
             })
             .from(patients)
             .leftJoin(lastVisitSq, eq(patients.id, lastVisitSq.patientId))
-            .orderBy(sql`${lastVisitSq.lastVisit} DESC NULLS LAST`, desc(patients.updatedAt))
+            .leftJoin(visitCountSq, eq(patients.id, visitCountSq.patientId))
+            .orderBy(...orderByClause)
             .limit(limit)
             .offset(offset);
 
         const [{ count: total }] = await db.select({ count: count() }).from(patients);
 
-        // Flatten the result for the frontend
-        const flattened = result.map(({ patient, lastVisit }) => ({
+        const flattened = result.map(({ patient, lastVisit, visitCount }) => ({
             ...patient,
-            lastVisit: lastVisit, // Explicitly return lastVisit
-            updatedAt: patient.updatedAt, // Keep original updatedAt
+            lastVisit: lastVisit,
+            visitCount: Number(visitCount || 0),
+            updatedAt: patient.updatedAt,
         }));
 
         res.json({ patients: flattened, total: Number(total), page, limit });

@@ -35,16 +35,18 @@ export const api = {
     // ─── Patients ─────────────────────────────────────────────────────
 
     patients: {
-        search: async (params: string | { firstName?: string; middleName?: string; lastName?: string; lastVisit?: Date }) => {
+        search: async (params: string | { firstName?: string; middleName?: string; lastName?: string; lastVisit?: Date; sortBy?: string; order?: string }) => {
             let query = "";
             if (typeof params === "string") {
                 query = `q=${encodeURIComponent(params)}`;
             } else {
                 const parts = [];
                 if (params.firstName) parts.push(`firstName=${encodeURIComponent(params.firstName)}`);
-                if (params.middleName) parts.push(`middleName=${encodeURIComponent(params.middleName)}`); // Mapping middle name to backend expectation which might be fatherName or similar
+                if (params.middleName) parts.push(`middleName=${encodeURIComponent(params.middleName)}`);
                 if (params.lastName) parts.push(`lastName=${encodeURIComponent(params.lastName)}`);
-                if (params.lastVisit) parts.push(`lastVisit=${params.lastVisit.toISOString()}`); // Sending ISO string
+                if (params.lastVisit) parts.push(`lastVisit=${params.lastVisit.toISOString()}`);
+                if (params.sortBy) parts.push(`sortBy=${params.sortBy}`);
+                if (params.order) parts.push(`order=${params.order}`);
                 query = parts.join("&");
             }
             const res = await fetch(`/api/patients/search?${query}`);
@@ -52,8 +54,8 @@ export const api = {
             return res.json();
         },
         get: (id: string) => request<any>(`/patients/${id}`),
-        list: (page = 1, limit = 30) =>
-            request<{ patients: any[]; total: number }>(`/patients?page=${page}&limit=${limit}`),
+        list: (page = 1, limit = 30, sortBy = "lastVisit", order = "desc") =>
+            request<{ patients: any[]; total: number }>(`/patients?page=${page}&limit=${limit}&sortBy=${sortBy}&order=${order}`),
         create: (data: any) =>
             request<any>("/patients", { method: "POST", body: JSON.stringify(data) }),
         update: (id: string, data: any) =>

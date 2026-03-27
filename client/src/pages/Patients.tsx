@@ -21,6 +21,10 @@ export default function Patients() {
         lastName: "",
         lastVisit: undefined
     });
+    const [sortConfig, setSortConfig] = useState<{ key: string; order: "asc" | "desc" }>({
+        key: "name",
+        order: "asc",
+    });
     const [page, setPage] = useState(1);
     const [showNewPatient, setShowNewPatient] = useState(false);
     const [showSmartExtraction, setShowSmartExtraction] = useState(false);
@@ -32,49 +36,40 @@ export default function Patients() {
         setPage(1);
     };
 
+    const handleSort = (key: string) => {
+        setSortConfig((prev) => ({
+            key,
+            order: prev.key === key && prev.order === "asc" ? "desc" : "asc",
+        }));
+        setPage(1);
+    };
+
     const isSearchMode = !!(filters.firstName || filters.middleName || filters.lastName || filters.lastVisit);
 
     // Search query
     const { data: searchResults = [], isFetching: isSearching } = useQuery({
-        queryKey: ["patients", "search", filters],
-        queryFn: () => api.patients.search(filters),
+        queryKey: ["patients", "search", filters, sortConfig],
+        queryFn: () => api.patients.search({ ...filters, ...sortConfig }),
         enabled: isSearchMode,
     });
 
     // List query (default)
     const { data: listData, isFetching: isListing } = useQuery({
-        queryKey: ["patients", "list", page, limit],
-        queryFn: () => api.patients.list(page, limit),
+        queryKey: ["patients", "list", page, limit, sortConfig],
+        queryFn: () => api.patients.list(page, limit, sortConfig.key, sortConfig.order),
         enabled: !isSearchMode,
         placeholderData: keepPreviousData,
     });
 
-    const patients = (() => {
-        const rawResults = isSearchMode ? searchResults : (listData?.patients || []);
-        if (!isSearchMode) return rawResults;
-
-        // Sort search results to prioritize "starts with" matches
-        return [...rawResults].sort((a: any, b: any) => {
-            const fSearch = (filters.firstName || "").toLowerCase();
-            const lSearch = (filters.lastName || "").toLowerCase();
-            const mSearch = (filters.middleName || "").toLowerCase();
-
-            const aFirst = (a.firstName || "").toLowerCase();
-            const aLast = (a.lastName || "").toLowerCase();
-            const bFirst = (b.firstName || "").toLowerCase();
-            const bLast = (b.lastName || "").toLowerCase();
-
-            // Simple start-with score
-            const aScore = (aFirst.startsWith(fSearch) || aLast.startsWith(lSearch) || (a.fatherName || "").toLowerCase().startsWith(mSearch)) ? 0 : 1;
-            const bScore = (bFirst.startsWith(fSearch) || bLast.startsWith(lSearch) || (b.fatherName || "").toLowerCase().startsWith(mSearch)) ? 0 : 1;
-
-            if (aScore !== bScore) return aScore - bScore;
-            return aLast.localeCompare(bLast) || aFirst.localeCompare(bFirst);
-        });
-    })();
+    const patients = isSearchMode ? searchResults : (listData?.patients || []);
 
     const isLoading = isSearchMode ? isSearching : isListing;
     const totalPages = listData?.total ? Math.ceil(listData.total / limit) : 0;
+
+    const SortIcon = ({ column }: { column: string }) => {
+        if (sortConfig.key !== column) return <span className="text-gray-300 ml-1">↕</span>;
+        return <span className="text-primary-600 ml-1">{sortConfig.order === "asc" ? "↑" : "↓"}</span>;
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
@@ -182,12 +177,42 @@ export default function Patients() {
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
-                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600">Name</th>
-                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600">Phone</th>
-                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600 hidden sm:table-cell">City</th>
-                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600">File #</th>
-                                        <th className="px-6 py-4 font-semibold text-gray-600">Visits</th>
-                                        <th className="px-6 py-4 font-semibold text-gray-600">Last Visit</th>
+                                        <th
+                                            className="px-4 sm:px-6 py-4 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 transition"
+                                            onClick={() => handleSort("name")}
+                                        >
+                                            Name <SortIcon column="name" />
+                                        </th>
+                                        <th
+                                            className="px-4 sm:px-6 py-4 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 transition"
+                                            onClick={() => handleSort("phone")}
+                                        >
+                                            Phone <SortIcon column="phone" />
+                                        </th>
+                                        <th
+                                            className="px-4 sm:px-6 py-4 font-semibold text-gray-600 hidden sm:table-cell cursor-pointer hover:bg-gray-100 transition"
+                                            onClick={() => handleSort("city")}
+                                        >
+                                            City <SortIcon column="city" />
+                                        </th>
+                                        <th
+                                            className="px-4 sm:px-6 py-4 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 transition"
+                                            onClick={() => handleSort("fileNumber")}
+                                        >
+                                            File # <SortIcon column="fileNumber" />
+                                        </th>
+                                        <th
+                                            className="px-6 py-4 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 transition"
+                                            onClick={() => handleSort("visits")}
+                                        >
+                                            Visits <SortIcon column="visits" />
+                                        </th>
+                                        <th
+                                            className="px-6 py-4 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 transition"
+                                            onClick={() => handleSort("lastVisit")}
+                                        >
+                                            Last Visit <SortIcon column="lastVisit" />
+                                        </th>
                                         <th className="px-6 py-4 font-semibold text-gray-600"></th>
                                     </tr>
                                 </thead>
