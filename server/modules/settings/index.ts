@@ -7,9 +7,53 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
+import os from "os";
 
 const router = Router();
 router.use(requireAuth);
+
+// ─── Server Info (network IPs) ──────────────────────────────────────
+
+router.get("/server-info", requireRole("admin"), (_req, res) => {
+    try {
+        const interfaces = os.networkInterfaces();
+        const addresses: { name: string; address: string; family: string }[] = [];
+
+        for (const [name, nets] of Object.entries(interfaces)) {
+            if (!nets) continue;
+            for (const net of nets) {
+                // Skip internal (loopback) and non-IPv4 addresses
+                if (!net.internal && net.family === "IPv4") {
+                    addresses.push({
+                        name,
+                        address: net.address,
+                        family: net.family,
+                    });
+                }
+            }
+        }
+
+        const port = process.env.PORT || "3002";
+        const uiPort = "5174"; // The dashboard runs on port 5174
+        const hostname = os.hostname();
+
+        const certPath = path.join(process.cwd(), "certs", "cert.pem");
+        const httpsEnabled = fs.existsSync(certPath);
+
+        res.json({
+            hostname,
+            port,
+            uiPort,
+            addresses,
+            accessUrls: addresses.map((a) => `http://${a.address}:${uiPort}`),
+            httpsUrls: httpsEnabled
+                ? addresses.map((a) => `https://${a.address}:${uiPort}`)
+                : [],
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 const BACKUP_DIR = path.join(process.cwd(), "bu_backup");
 if (!fs.existsSync(BACKUP_DIR)) {

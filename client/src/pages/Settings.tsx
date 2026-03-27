@@ -36,6 +36,12 @@ export default function Settings() {
         queryFn: () => api.settings.get(),
     });
 
+    const { data: serverInfo } = useQuery({
+        queryKey: ["settings", "server-info"],
+        queryFn: () => api.settings.serverInfo(),
+        enabled: user?.role === "admin",
+    });
+
     useEffect(() => {
         if (settings) setForm(settings);
     }, [settings]);
@@ -113,6 +119,82 @@ export default function Settings() {
     return (
         <div className="max-w-3xl mx-auto px-6 py-8">
             <h1 className="text-3xl font-extrabold text-gray-900 mb-8">⚙️ Settings</h1>
+
+            {/* ─── Server Network Info ─── */}
+            {user?.role === "admin" && serverInfo && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+                    <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        🌐 Server Network Info
+                    </h2>
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-gray-500 w-28">Hostname:</span>
+                            <span className="font-mono text-sm bg-gray-100 px-3 py-1 rounded-lg">{serverInfo.hostname}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-gray-500 w-28">Dashboard Port:</span>
+                            <span className="font-mono text-sm bg-gray-100 px-3 py-1 rounded-lg">
+                                {serverInfo.uiPort}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-gray-500 w-28">API Port:</span>
+                            <span className="font-mono text-sm bg-gray-100 px-3 py-1 rounded-lg">{serverInfo.port}</span>
+                        </div>
+
+                        {/* HTTPS URLs for phones */}
+                        {serverInfo.httpsUrls && serverInfo.httpsUrls.length > 0 && (
+                            <div className="border-t border-gray-100 pt-3 mt-3">
+                                <p className="text-sm font-bold text-green-700 mb-2">📱 Phone Access (HTTPS – camera enabled):</p>
+                                <div className="space-y-2">
+                                    {serverInfo.addresses.map((addr, i) => (
+                                        <div key={`https-${i}`} className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                                            <span className="text-xs font-bold text-green-500 uppercase w-16">{addr.name}</span>
+                                            <span className="font-mono text-lg font-bold text-green-700">
+                                                {serverInfo.httpsUrls[i]}
+                                            </span>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(serverInfo.httpsUrls[i]);
+                                                }}
+                                                className="ml-auto px-3 py-1 bg-green-100 text-green-600 rounded-lg text-xs font-bold hover:bg-green-200 transition"
+                                                title="Copy to clipboard"
+                                            >
+                                                📋 Copy
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2">* First time: tap “Advanced” → “Proceed” to accept the self-signed certificate</p>
+                            </div>
+                        )}
+
+                        {/* HTTP URLs */}
+                        <div className="border-t border-gray-100 pt-3 mt-3">
+                            <p className="text-sm font-semibold text-gray-500 mb-2">🖥️ Desktop Access (HTTP):</p>
+                            <div className="space-y-2">
+                                {serverInfo.addresses.map((addr, i) => (
+                                    <div key={`http-${i}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                        <span className="text-xs font-bold text-gray-400 uppercase w-16">{addr.name}</span>
+                                        <span className="font-mono text-sm font-semibold text-gray-600">
+                                            {serverInfo.accessUrls[i]}
+                                        </span>
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(serverInfo.accessUrls[i]);
+                                            }}
+                                            className="ml-auto px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold hover:bg-gray-200 transition"
+                                            title="Copy to clipboard"
+                                        >
+                                            📋 Copy
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Clinic Settings ─── */}
             {user?.role === "admin" && (

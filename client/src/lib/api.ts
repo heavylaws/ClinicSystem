@@ -235,6 +235,15 @@ export const api = {
                 method: "PUT",
                 body: JSON.stringify(data),
             }),
+        serverInfo: () =>
+            request<{
+                hostname: string;
+                port: string;
+                uiPort: string;
+                addresses: { name: string; address: string; family: string }[];
+                accessUrls: string[];
+                httpsUrls: string[];
+            }>("/settings/server-info"),
         restore: async (file: File) => {
             const formData = new FormData();
             formData.append("backup", file);

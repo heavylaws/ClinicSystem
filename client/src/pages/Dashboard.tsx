@@ -27,11 +27,28 @@ export default function Dashboard({ user }: DashboardProps) {
         refetchInterval: 15000,
     });
 
-    const { data: searchResults = [], isFetching: isSearching } = useQuery({
+    const { data: searchResultsRaw = [], isFetching: isSearching } = useQuery({
         queryKey: ["patients", "search", searchQuery],
         queryFn: () => api.patients.search(searchQuery),
         enabled: searchQuery.length >= 1,
     });
+
+    const searchResults = (() => {
+        if (searchQuery.length < 1) return [];
+        return [...searchResultsRaw].sort((a: any, b: any) => {
+            const q = searchQuery.toLowerCase();
+            const aFirst = (a.firstName || "").toLowerCase();
+            const aLast = (a.lastName || "").toLowerCase();
+            const bFirst = (b.firstName || "").toLowerCase();
+            const bLast = (b.lastName || "").toLowerCase();
+
+            const aScore = (aFirst.startsWith(q) || aLast.startsWith(q)) ? 0 : 1;
+            const bScore = (bFirst.startsWith(q) || bLast.startsWith(q)) ? 0 : 1;
+
+            if (aScore !== bScore) return aScore - bScore;
+            return aLast.localeCompare(bLast) || aFirst.localeCompare(bFirst);
+        });
+    })();
 
     const { data: recentPatientsData, isFetching: isFetchingRecent } = useQuery({
         queryKey: ["patients", "recent"],
@@ -53,6 +70,12 @@ export default function Dashboard({ user }: DashboardProps) {
     const { data: upcomingFollowUps = [] } = useQuery({
         queryKey: ["followups", "upcoming"],
         queryFn: () => api.followUps.upcoming(),
+    });
+
+    const { data: serverInfo } = useQuery({
+        queryKey: ["settings", "server-info"],
+        queryFn: () => api.settings.serverInfo(),
+        enabled: user?.role === "admin",
     });
 
     // ─── WebSocket for real-time queue ────────────────────────────────
@@ -103,6 +126,38 @@ export default function Dashboard({ user }: DashboardProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* ─── Left Column: Search & Patients ─── */}
                     <div className="lg:col-span-1 space-y-6">
+                        {/* Server/Mobile Info (Admin Only) */}
+                        {user?.role === "admin" && serverInfo && serverInfo.httpsUrls.length > 0 && (
+                            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg p-5 text-white border border-green-400/30">
+                                <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+                                    📱 Mobile Camera Access
+                                </h2>
+                                <div className="space-y-3">
+                                    {serverInfo.addresses.map((addr, i) => (
+                                        <div key={i} className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">
+                                                    {addr.name}
+                                                </span>
+                                                <button
+                                                    onClick={() => navigator.clipboard.writeText(serverInfo.httpsUrls[i])}
+                                                    className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded transition"
+                                                >
+                                                    Copy
+                                                </button>
+                                            </div>
+                                            <p className="font-mono text-sm font-bold truncate">
+                                                {serverInfo.httpsUrls[i]}
+                                            </p>
+                                        </div>
+                                    ))}
+                                    <p className="text-[10px] opacity-80 leading-tight">
+                                        Scan or type this URL on your phone browser to use the camera.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Search */}
                         <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
                             <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">

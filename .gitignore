@@ -27,3 +27,6 @@ Thumbs.db
 
 # Debug files
 debug-*.ts
+
+# SSL certificates (private keys)
+certs/

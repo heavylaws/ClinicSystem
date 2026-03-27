@@ -3,6 +3,8 @@ import express from "express";
 import session from "express-session";
 import cors from "cors";
 import { createServer } from "http";
+import { createServer as createHttpsServer } from "https";
+import fs from "fs";
 import { db } from "./db/index.js";
 import { authRouter, setupPassport } from "./modules/auth/index.js";
 import { patientRouter } from "./modules/patient/index.js";
@@ -75,7 +77,33 @@ setupWebSocket(server);
 // ─── Start ──────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || "3002");
+const HTTPS_PORT = parseInt(process.env.HTTPS_PORT || "3443");
 
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`🩺 DermClinic server running on http://0.0.0.0:${PORT}`);
 });
+
+// ─── HTTPS (needed for camera access from phones on LAN) ────────────
+
+const certPath = path.join(process.cwd(), "certs", "cert.pem");
+const keyPath = path.join(process.cwd(), "certs", "key.pem");
+
+if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    const httpsServer = createHttpsServer(
+        {
+            cert: fs.readFileSync(certPath),
+            key: fs.readFileSync(keyPath),
+        },
+        app
+    );
+
+    setupWebSocket(httpsServer);
+
+    httpsServer.listen(HTTPS_PORT, "0.0.0.0", () => {
+        console.log(`🔒 DermClinic HTTPS running on https://0.0.0.0:${HTTPS_PORT}`);
+        console.log(`📱 Use https://<server-ip>:${HTTPS_PORT} from phones for camera access`);
+    });
+} else {
+    console.log("⚠️  No SSL certs found in certs/ — HTTPS disabled (camera won't work on phones)");
+    console.log("   Run: openssl req -x509 -newkey rsa:2048 -keyout certs/key.pem -out certs/cert.pem -days 3650 -nodes -subj '/CN=DermClinic'");
+}

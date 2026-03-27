@@ -49,15 +49,38 @@ export default function Patients() {
         placeholderData: keepPreviousData,
     });
 
-    const patients = isSearchMode ? searchResults : (listData?.patients || []);
+    const patients = (() => {
+        const rawResults = isSearchMode ? searchResults : (listData?.patients || []);
+        if (!isSearchMode) return rawResults;
+
+        // Sort search results to prioritize "starts with" matches
+        return [...rawResults].sort((a: any, b: any) => {
+            const fSearch = (filters.firstName || "").toLowerCase();
+            const lSearch = (filters.lastName || "").toLowerCase();
+            const mSearch = (filters.middleName || "").toLowerCase();
+
+            const aFirst = (a.firstName || "").toLowerCase();
+            const aLast = (a.lastName || "").toLowerCase();
+            const bFirst = (b.firstName || "").toLowerCase();
+            const bLast = (b.lastName || "").toLowerCase();
+
+            // Simple start-with score
+            const aScore = (aFirst.startsWith(fSearch) || aLast.startsWith(lSearch) || (a.fatherName || "").toLowerCase().startsWith(mSearch)) ? 0 : 1;
+            const bScore = (bFirst.startsWith(fSearch) || bLast.startsWith(lSearch) || (b.fatherName || "").toLowerCase().startsWith(mSearch)) ? 0 : 1;
+
+            if (aScore !== bScore) return aScore - bScore;
+            return aLast.localeCompare(bLast) || aFirst.localeCompare(bFirst);
+        });
+    })();
+
     const isLoading = isSearchMode ? isSearching : isListing;
     const totalPages = listData?.total ? Math.ceil(listData.total / limit) : 0;
 
     return (
-        <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-3xl font-extrabold text-gray-900">👥 Patients Directory</h1>
-                <div className="flex gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">👥 Patients Directory</h1>
+                <div className="flex gap-2 sm:gap-4">
                     <button
                         onClick={() => setShowSmartExtraction(true)}
                         className="px-6 py-3 bg-white border-2 border-primary-200 text-primary-700 font-bold rounded-xl shadow-sm hover:bg-primary-50 transition flex items-center gap-2"
@@ -159,10 +182,10 @@ export default function Patients() {
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-200">
                                     <tr>
-                                        <th className="px-6 py-4 font-semibold text-gray-600">Name</th>
-                                        <th className="px-6 py-4 font-semibold text-gray-600">Phone</th>
-                                        <th className="px-6 py-4 font-semibold text-gray-600">City</th>
-                                        <th className="px-6 py-4 font-semibold text-gray-600">File #</th>
+                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600">Name</th>
+                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600">Phone</th>
+                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600 hidden sm:table-cell">City</th>
+                                        <th className="px-4 sm:px-6 py-4 font-semibold text-gray-600">File #</th>
                                         <th className="px-6 py-4 font-semibold text-gray-600">Visits</th>
                                         <th className="px-6 py-4 font-semibold text-gray-600">Last Visit</th>
                                         <th className="px-6 py-4 font-semibold text-gray-600"></th>
@@ -175,15 +198,15 @@ export default function Patients() {
                                             className="hover:bg-gray-50 transition cursor-pointer"
                                             onClick={() => navigate(`/patient/${patient.id}`)}
                                         >
-                                            <td className="px-6 py-4">
-                                                <p className="font-bold text-gray-900">
+                                            <td className="px-4 sm:px-6 py-2 sm:py-4">
+                                                <p className="font-bold text-gray-900 text-sm sm:text-base">
                                                     {patient.firstName} {patient.fatherName} {patient.lastName}
                                                 </p>
-                                                <p className="text-sm text-gray-500 capitalize">{patient.gender}</p>
+                                                <p className="text-[10px] sm:text-sm text-gray-500 capitalize">{patient.gender}</p>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-600">{patient.phone || "—"}</td>
-                                            <td className="px-6 py-4 text-gray-600">{patient.city || "—"}</td>
-                                            <td className="px-6 py-4 text-gray-600">#{patient.fileNumber}</td>
+                                            <td className="px-4 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-600">{patient.phone || "—"}</td>
+                                            <td className="px-4 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-600 hidden sm:table-cell">{patient.city || "—"}</td>
+                                            <td className="px-4 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-gray-600">#{patient.fileNumber}</td>
                                             <td className="px-6 py-4 text-gray-600">
                                                 <span className="inline-flex items-center justify-center bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded-full text-xs">
                                                     {patient.visitCount ?? 0}

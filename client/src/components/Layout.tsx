@@ -30,9 +30,9 @@ export default function Layout({ user }: LayoutProps) {
 
     const logoutMutation = useMutation({
         mutationFn: api.auth.logout,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["auth"] });
-            navigate("/login");
+        onSettled: () => {
+            queryClient.clear();
+            window.location.href = "/login";
         },
     });
 
@@ -83,15 +83,15 @@ export default function Layout({ user }: LayoutProps) {
                     </div>
 
                     {/* User Profile & Actions */}
-                    <div className="flex items-center gap-6">
-                        <div className="hidden sm:block text-right">
+                    <div className="flex items-center gap-4 sm:gap-6">
+                        <div className="hidden lg:block text-right">
                             <p className="font-semibold text-sm text-gray-800">{user.displayName}</p>
                             <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                         </div>
-                        <div className="h-8 w-[1px] bg-gray-200 hidden sm:block"></div>
+                        <div className="h-8 w-[1px] bg-gray-200 hidden lg:block"></div>
                         <button
                             onClick={() => logoutMutation.mutate()}
-                            className="text-sm font-medium text-gray-500 hover:text-danger-600 transition"
+                            className="text-xs sm:text-sm font-bold text-gray-400 hover:text-danger-600 transition uppercase tracking-wider"
                         >
                             Logout
                         </button>
