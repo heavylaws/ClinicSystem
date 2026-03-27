@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import AutocompleteInput from "../components/AutocompleteInput";
 import BillVisitDialog from "../components/BillVisitDialog";
-import { Pencil, Banknote, Printer, Camera as CameraIcon } from "lucide-react";
+import { Pencil, Banknote, Printer, Camera as CameraIcon, Beaker, Pill } from "lucide-react";
 import PrescriptionPrint from "../components/PrescriptionPrint";
+import LabPrint from "../components/LabPrint";
 import CameraCapture from "../components/CameraCapture";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import DiagnosticsTable from "../components/patient/DiagnosticsTable";
@@ -25,6 +26,7 @@ export default function PatientFile({ user }: PatientFileProps) {
     const [activeVisitId, setActiveVisitId] = useState<string | null>(null);
     const [billingVisitId, setBillingVisitId] = useState<string | null>(null);
     const [printVisit, setPrintVisit] = useState<any>(null);
+    const [printLabVisit, setPrintLabVisit] = useState<any>(null);
     const [showEditPatient, setShowEditPatient] = useState(false);
 
     // ─── Queries ──────────────────────────────────────────────────────
@@ -207,6 +209,8 @@ export default function PatientFile({ user }: PatientFileProps) {
                                                                 visitId={activeVisitId!}
                                                                 patientId={id!}
                                                                 user={user}
+                                                                onPrintRx={(data) => setPrintVisit(data)}
+                                                                onPrintLab={(data) => setPrintLabVisit(data)}
                                                                 onClose={() => {
                                                                     setShowNewVisit(false);
                                                                     setActiveVisitId(null);
@@ -232,11 +236,22 @@ export default function PatientFile({ user }: PatientFileProps) {
                                                                 {/* Print Rx Button */}
                                                                 {visit.prescriptions?.length > 0 && (
                                                                     <button
-                                                                        onClick={() => setPrintVisit(visit)}
+                                                                        onClick={(e) => { e.stopPropagation(); setPrintVisit(visit); }}
                                                                         className="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition"
                                                                         title="Print Prescription"
                                                                     >
-                                                                        <Printer size={18} />
+                                                                        <Pill size={18} />
+                                                                    </button>
+                                                                )}
+
+                                                                {/* Print Lab Button */}
+                                                                {visit.labOrders?.length > 0 && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setPrintLabVisit(visit); }}
+                                                                        className="p-2 bg-cyan-100 text-cyan-600 rounded-lg hover:bg-cyan-200 transition"
+                                                                        title="Print Lab Request"
+                                                                    >
+                                                                        <Beaker size={18} />
                                                                     </button>
                                                                 )}
 
@@ -432,6 +447,19 @@ export default function PatientFile({ user }: PatientFileProps) {
                 )
             }
 
+            {/* Lab Print Dialog */}
+            {
+                printLabVisit && patient && (
+                    <LabPrint
+                        patient={patient}
+                        visit={printLabVisit}
+                        labOrders={printLabVisit.labOrders || []}
+                        diagnoses={printLabVisit.diagnoses || []}
+                        onClose={() => setPrintLabVisit(null)}
+                    />
+                )
+            }
+
             {/* Patient Edit Dialog */}
             {
                 showEditPatient && patient && (
@@ -466,11 +494,15 @@ function VisitForm({
     visitId,
     patientId,
     user,
+    onPrintRx,
+    onPrintLab,
     onClose,
 }: {
     visitId: string;
     patientId: string;
     user: any;
+    onPrintRx: (data: any) => void;
+    onPrintLab: (data: any) => void;
     onClose: () => void;
 }) {
     const queryClient = useQueryClient();
@@ -1090,22 +1122,44 @@ function VisitForm({
                 </div>
 
                 {/* ─── Actions ─── */}
-                <div className="flex gap-4 pt-4 border-t border-primary-100">
-                    <button
-                        onClick={() => completeVisitMutation.mutate()}
-                        disabled={completeVisitMutation.isPending}
-                        className="flex-1 py-4 bg-gradient-to-r from-accent-500 to-accent-600 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
-                    >
-                        {completeVisitMutation.isPending
-                            ? "Saving..."
-                            : "✅ Save & Complete Visit"}
-                    </button>
-                    <button
-                        onClick={() => saveNotesMutation.mutate()}
-                        className="px-8 py-4 bg-gray-100 text-gray-700 text-lg font-semibold rounded-xl hover:bg-gray-200 transition"
-                    >
-                        💾 Save Draft
-                    </button>
+                <div className="flex flex-wrap gap-4 pt-6 border-t border-primary-100 items-center justify-between">
+                    <div className="flex gap-3">
+                        {addedMeds.length > 0 && (
+                            <button
+                                onClick={() => onPrintRx({ ...existingVisit, prescriptions: addedMeds, diagnoses: addedDiagnoses })}
+                                className="px-5 py-3 bg-purple-100 text-purple-700 font-bold rounded-xl hover:bg-purple-200 transition flex items-center gap-2"
+                            >
+                                <Pill size={20} />
+                                Print Rx
+                            </button>
+                        )}
+                        {addedLabs.length > 0 && (
+                            <button
+                                onClick={() => onPrintLab({ ...existingVisit, labOrders: addedLabs, diagnoses: addedDiagnoses })}
+                                className="px-5 py-3 bg-cyan-100 text-cyan-700 font-bold rounded-xl hover:bg-cyan-200 transition flex items-center gap-2"
+                            >
+                                <Beaker size={20} />
+                                Print Lab
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex gap-4">
+                        <button
+                            onClick={() => saveNotesMutation.mutate()}
+                            className="px-8 py-4 bg-gray-100 text-gray-700 text-lg font-semibold rounded-xl hover:bg-gray-200 transition"
+                        >
+                            💾 Save Draft
+                        </button>
+                        <button
+                            onClick={() => completeVisitMutation.mutate()}
+                            disabled={completeVisitMutation.isPending}
+                            className="px-10 py-4 bg-gradient-to-r from-accent-500 to-accent-600 text-white text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                        >
+                            {completeVisitMutation.isPending
+                                ? "Saving..."
+                                : "✅ Save & Complete Visit"}
+                        </button>
+                    </div>
                 </div>
             </div>
             {showCamera && (
