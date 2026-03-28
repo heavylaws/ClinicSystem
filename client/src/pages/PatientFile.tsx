@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import AutocompleteInput from "../components/AutocompleteInput";
 import BillVisitDialog from "../components/BillVisitDialog";
-import { Pencil, Banknote, Printer, Camera as CameraIcon, Beaker, Pill } from "lucide-react";
+import { Pencil, Banknote, Printer, Camera as CameraIcon, Beaker, Pill, Check, X } from "lucide-react";
 import PrescriptionPrint from "../components/PrescriptionPrint";
 import LabPrint from "../components/LabPrint";
+import ClinicalNotesPrint from "../components/ClinicalNotesPrint";
 import CameraCapture from "../components/CameraCapture";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import DiagnosticsTable from "../components/patient/DiagnosticsTable";
@@ -27,6 +28,7 @@ export default function PatientFile({ user }: PatientFileProps) {
     const [billingVisitId, setBillingVisitId] = useState<string | null>(null);
     const [printVisit, setPrintVisit] = useState<any>(null);
     const [printLabVisit, setPrintLabVisit] = useState<any>(null);
+    const [printNotesVisit, setPrintNotesVisit] = useState<any>(null);
     const [showEditPatient, setShowEditPatient] = useState(false);
 
     // ─── Queries ──────────────────────────────────────────────────────
@@ -211,6 +213,7 @@ export default function PatientFile({ user }: PatientFileProps) {
                                                                 user={user}
                                                                 onPrintRx={(data) => setPrintVisit(data)}
                                                                 onPrintLab={(data) => setPrintLabVisit(data)}
+                                                                onPrintNotes={(data) => setPrintNotesVisit(data)}
                                                                 onClose={() => {
                                                                     setShowNewVisit(false);
                                                                     setActiveVisitId(null);
@@ -252,6 +255,17 @@ export default function PatientFile({ user }: PatientFileProps) {
                                                                         title="Print Lab Request"
                                                                     >
                                                                         <Beaker size={18} />
+                                                                    </button>
+                                                                )}
+
+                                                                {/* Print Notes Button */}
+                                                                {(visit.clinicalNotes || visit.chiefComplaint) && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setPrintNotesVisit(visit); }}
+                                                                        className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition"
+                                                                        title="Print Clinical Notes"
+                                                                    >
+                                                                        <Printer size={18} />
                                                                     </button>
                                                                 )}
 
@@ -460,6 +474,18 @@ export default function PatientFile({ user }: PatientFileProps) {
                 )
             }
 
+            {/* Clinical Notes Print Dialog */}
+            {
+                printNotesVisit && patient && (
+                    <ClinicalNotesPrint
+                        patient={patient}
+                        visit={printNotesVisit}
+                        diagnoses={printNotesVisit.diagnoses || []}
+                        onClose={() => setPrintNotesVisit(null)}
+                    />
+                )
+            }
+
             {/* Patient Edit Dialog */}
             {
                 showEditPatient && patient && (
@@ -496,6 +522,7 @@ function VisitForm({
     user,
     onPrintRx,
     onPrintLab,
+    onPrintNotes,
     onClose,
 }: {
     visitId: string;
@@ -503,6 +530,7 @@ function VisitForm({
     user: any;
     onPrintRx: (data: any) => void;
     onPrintLab: (data: any) => void;
+    onPrintNotes: (data: any) => void;
     onClose: () => void;
 }) {
     const queryClient = useQueryClient();
@@ -540,6 +568,8 @@ function VisitForm({
 
     // Lists of added items
     const [addedDiagnoses, setAddedDiagnoses] = useState<any[]>([]);
+    const [editingDiagId, setEditingDiagId] = useState<string | null>(null);
+    const [editingDiagValue, setEditingDiagValue] = useState("");
     const [addedMeds, setAddedMeds] = useState<any[]>([]);
     const [addedLabs, setAddedLabs] = useState<any[]>([]);
     const [addedProcs, setAddedProcs] = useState<any[]>([]);
@@ -594,6 +624,18 @@ function VisitForm({
         onSuccess: (newDiags) => {
             setAddedDiagnoses((prev) => [...prev, ...newDiags]);
             setSelectedDiagnoses([]);
+        },
+    });
+
+    const updateDiagnosisMutation = useMutation({
+        mutationFn: ({ id, name }: { id: string; name: string }) =>
+            api.visits.updateDiagnosis(id, { name }),
+        onSuccess: (updatedDiag) => {
+            setAddedDiagnoses((prev) =>
+                prev.map((d) => (d.id === updatedDiag.id ? updatedDiag : d))
+            );
+            setEditingDiagId(null);
+            setEditingDiagValue("");
         },
     });
 
@@ -814,15 +856,62 @@ function VisitForm({
                             {addedDiagnoses.map((d) => (
                                 <span
                                     key={d.id}
-                                    className="inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-full text-lg font-semibold"
+                                    className={`inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-full text-lg font-semibold ${editingDiagId === d.id ? "ring-2 ring-primary-500 bg-white" : ""
+                                        }`}
                                 >
-                                    {d.name}
-                                    <button
-                                        onClick={() => deleteDiag(d.id)}
-                                        className="text-primary-400 hover:text-danger-500 text-xl"
-                                    >
-                                        ×
-                                    </button>
+                                    {editingDiagId === d.id ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                value={editingDiagValue}
+                                                onChange={(e) => setEditingDiagValue(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        updateDiagnosisMutation.mutate({ id: d.id, name: editingDiagValue });
+                                                    } else if (e.key === "Escape") {
+                                                        setEditingDiagId(null);
+                                                    }
+                                                }}
+                                                className="bg-transparent border-none outline-none text-primary-900 w-32 md:w-48"
+                                            />
+                                            <button
+                                                onClick={() => updateDiagnosisMutation.mutate({ id: d.id, name: editingDiagValue })}
+                                                className="text-green-600 hover:text-green-700"
+                                            >
+                                                <Check size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingDiagId(null)}
+                                                className="text-gray-400 hover:text-gray-600"
+                                            >
+                                                <X size={18} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {d.name}
+                                            <div className="flex items-center gap-1.5 ml-1">
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingDiagId(d.id);
+                                                        setEditingDiagValue(d.name);
+                                                    }}
+                                                    className="text-primary-400 hover:text-primary-600 transition"
+                                                    title="Edit name"
+                                                >
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => deleteDiag(d.id)}
+                                                    className="text-primary-400 hover:text-danger-500 transition"
+                                                    title="Delete"
+                                                >
+                                                    <X size={18} />
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </span>
                             ))}
                         </div>
@@ -1140,6 +1229,15 @@ function VisitForm({
                             >
                                 <Beaker size={20} />
                                 Print Lab
+                            </button>
+                        )}
+                        {(notes || complaint) && (
+                            <button
+                                onClick={() => onPrintNotes({ ...existingVisit, chiefComplaint: complaint, clinicalNotes: notes, diagnoses: addedDiagnoses })}
+                                className="px-5 py-3 bg-emerald-100 text-emerald-700 font-bold rounded-xl hover:bg-emerald-200 transition flex items-center gap-2"
+                            >
+                                <Printer size={20} />
+                                Print Notes
                             </button>
                         )}
                     </div>

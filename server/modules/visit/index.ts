@@ -242,6 +242,30 @@ router.delete("/diagnoses/:diagId", async (req, res) => {
     }
 });
 
+// ─── Update diagnosis name ──────────────────────────────────────────
+
+router.patch("/diagnoses/:diagId", async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) return res.status(400).json({ error: "Name is required" });
+
+        const [diagnosis] = await db
+            .update(diagnoses)
+            .set({ name })
+            .where(eq(diagnoses.id, req.params.diagId))
+            .returning();
+
+        if (!diagnosis) return res.status(404).json({ error: "Diagnosis not found" });
+
+        // Re-learn the term
+        await learnTerm("diagnosis", name);
+
+        res.json(diagnosis);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ─── Add prescription ───────────────────────────────────────────────
 
 router.post("/:id/prescriptions", async (req, res) => {

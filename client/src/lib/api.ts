@@ -89,6 +89,11 @@ export const api = {
             }),
         deleteDiagnosis: (id: string) =>
             request(`/visits/diagnoses/${id}`, { method: "DELETE" }),
+        updateDiagnosis: (id: string, data: { name: string }) =>
+            request<any>(`/visits/diagnoses/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify(data),
+            }),
         addPrescription: (visitId: string, data: any) =>
             request<any>(`/visits/${visitId}/prescriptions`, {
                 method: "POST",
