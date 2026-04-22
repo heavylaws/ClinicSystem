@@ -60,6 +60,8 @@ export const api = {
             request<any>("/patients", { method: "POST", body: JSON.stringify(data) }),
         update: (id: string, data: any) =>
             request<any>(`/patients/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+        insuranceSuggestions: (q: string) =>
+            request<string[]>(`/patients/insurance-suggestions?q=${encodeURIComponent(q)}`),
     },
 
     // ─── Visits ───────────────────────────────────────────────────────

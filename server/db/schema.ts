@@ -48,6 +48,7 @@ export const patients = pgTable(
         maritalStatus: varchar("marital_status", { length: 20 }),
         allergies: text("allergies"),
         chronicConditions: text("chronic_conditions"),
+        insurance: varchar("insurance", { length: 300 }),
         notes: text("notes"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),

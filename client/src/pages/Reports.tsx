@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import AutocompleteInput from "../components/AutocompleteInput";
+
+type SortKey = "visitDate" | "patientName" | "patientFileNumber" | "medicationName" | "dosage" | "frequency" | "duration";
+type SortDir = "asc" | "desc";
 
 export default function Reports() {
     // ... existing queries
@@ -14,6 +17,10 @@ export default function Reports() {
     const [medicationFilter, setMedicationFilter] = useState("");
     const [showCustomReport, setShowCustomReport] = useState(false);
 
+    // Sorting State
+    const [sortKey, setSortKey] = useState<SortKey>("visitDate");
+    const [sortDir, setSortDir] = useState<SortDir>("desc");
+
     const { data: user } = useQuery({ queryKey: ["auth", "me"], queryFn: api.auth.me });
 
     const { data: prescriptionReport, refetch: generateReport, isFetching: reportLoading } = useQuery({
@@ -22,7 +29,70 @@ export default function Reports() {
         enabled: false, // Only run when button clicked
     });
 
+    // ─── Sort Handler ───────────────────────────────────────────────
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+        } else {
+            setSortKey(key);
+            setSortDir(key === "visitDate" ? "desc" : "asc");
+        }
+    };
+
+    // ─── Sorted Rows ────────────────────────────────────────────────
+    const sortedRows = useMemo(() => {
+        if (!prescriptionReport?.rows) return [];
+        const rows = [...prescriptionReport.rows];
+        rows.sort((a: any, b: any) => {
+            let aVal = a[sortKey];
+            let bVal = b[sortKey];
+
+            // Handle nulls / "—"
+            if (!aVal && !bVal) return 0;
+            if (!aVal) return 1;
+            if (!bVal) return -1;
+
+            // Date comparison
+            if (sortKey === "visitDate") {
+                const diff = new Date(aVal).getTime() - new Date(bVal).getTime();
+                return sortDir === "asc" ? diff : -diff;
+            }
+
+            // Numeric comparison for file numbers
+            if (sortKey === "patientFileNumber") {
+                const diff = Number(aVal) - Number(bVal);
+                return sortDir === "asc" ? diff : -diff;
+            }
+
+            // String comparison (case-insensitive)
+            aVal = String(aVal).toLowerCase();
+            bVal = String(bVal).toLowerCase();
+            const cmp = aVal.localeCompare(bVal);
+            return sortDir === "asc" ? cmp : -cmp;
+        });
+        return rows;
+    }, [prescriptionReport?.rows, sortKey, sortDir]);
+
     // ... existing loading check
+
+    // ─── Sortable Header Component ──────────────────────────────────
+    const SortHeader = ({ label, field }: { label: string; field: SortKey }) => {
+        const isActive = sortKey === field;
+        return (
+            <th
+                className="py-3 px-4 font-semibold cursor-pointer select-none hover:bg-gray-100 transition-colors group"
+                onClick={() => handleSort(field)}
+            >
+                <span className="inline-flex items-center gap-1.5">
+                    {label}
+                    <span className={`inline-flex flex-col text-[10px] leading-none ${isActive ? "text-primary-600" : "text-gray-300 group-hover:text-gray-400"}`}>
+                        <span className={isActive && sortDir === "asc" ? "text-primary-600" : ""}>▲</span>
+                        <span className={isActive && sortDir === "desc" ? "text-primary-600" : ""}>▼</span>
+                    </span>
+                </span>
+            </th>
+        );
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-6 py-8">
@@ -128,17 +198,17 @@ export default function Reports() {
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-gray-50 text-gray-700 border-b border-gray-200">
-                                                <th className="py-3 px-4 font-semibold">Date</th>
-                                                <th className="py-3 px-4 font-semibold">Patient</th>
-                                                <th className="py-3 px-4 font-semibold">File #</th>
-                                                <th className="py-3 px-4 font-semibold">Medication</th>
-                                                <th className="py-3 px-4 font-semibold">Dosage</th>
-                                                <th className="py-3 px-4 font-semibold">Frequency</th>
-                                                <th className="py-3 px-4 font-semibold">Duration</th>
+                                                <SortHeader label="Date" field="visitDate" />
+                                                <SortHeader label="Patient" field="patientName" />
+                                                <SortHeader label="File #" field="patientFileNumber" />
+                                                <SortHeader label="Medication" field="medicationName" />
+                                                <SortHeader label="Dosage" field="dosage" />
+                                                <SortHeader label="Frequency" field="frequency" />
+                                                <SortHeader label="Duration" field="duration" />
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {prescriptionReport.rows.map((rx: any) => (
+                                            {sortedRows.map((rx: any) => (
                                                 <tr key={rx.id} className="border-b border-gray-100 hover:bg-gray-50">
                                                     <td className="py-3 px-4">
                                                         {new Date(rx.visitDate).toLocaleDateString()}

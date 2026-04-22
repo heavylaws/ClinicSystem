@@ -8,7 +8,31 @@ import { requireAuth } from "../auth/index.js";
 const router = Router();
 router.use(requireAuth);
 
-// ─── Search patients (fuzzy) ────────────────────────────────────────
+// ─── Insurance suggestions (autocomplete) ───────────────────────────
+
+router.get("/insurance-suggestions", async (req, res) => {
+    try {
+        const q = (req.query.q as string || "").trim();
+        if (q.length < 1) return res.json([]);
+
+        const result = await db.execute(sql`
+            SELECT insurance, COUNT(*) as cnt
+            FROM patients
+            WHERE insurance IS NOT NULL 
+              AND insurance != ''
+              AND insurance ILIKE ${'%' + q + '%'}
+            GROUP BY insurance
+            ORDER BY cnt DESC
+            LIMIT 15
+        `);
+
+        const suggestions = result.rows.map((r: any) => r.insurance);
+        res.json(suggestions);
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 router.get("/search", async (req, res) => {
     try {

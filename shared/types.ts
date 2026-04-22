@@ -15,6 +15,7 @@ export const insertPatientSchema = z.object({
     maritalStatus: z.enum(["Single", "Married", "Divorced", "Widowed"]).optional(),
     allergies: z.string().optional(),
     chronicConditions: z.string().optional(),
+    insurance: z.string().optional(),
     notes: z.string().optional(),
 });
 

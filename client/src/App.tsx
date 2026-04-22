@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./lib/api";
@@ -11,8 +12,46 @@ import Patients from "./pages/Patients";
 import Appointments from "./pages/Appointments";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
+import StartupScreen from "./components/StartupScreen";
 
 export default function App() {
+    const [backendReady, setBackendReady] = useState<boolean | null>(null);
+
+    // Check backend health on initial mount
+    const checkBackend = useCallback(async () => {
+        try {
+            const res = await fetch("/api/health", {
+                signal: AbortSignal.timeout(2000),
+            });
+            if (res.ok) {
+                setBackendReady(true);
+                return;
+            }
+        } catch {
+            // Backend not ready
+        }
+        setBackendReady(false);
+    }, []);
+
+    useEffect(() => {
+        checkBackend();
+    }, [checkBackend]);
+
+    // Still checking...
+    if (backendReady === null) {
+        return null;
+    }
+
+    // Backend not ready — show startup screen
+    if (!backendReady) {
+        return <StartupScreen onReady={() => setBackendReady(true)} />;
+    }
+
+    // Backend is ready — render normal app
+    return <AppContent />;
+}
+
+function AppContent() {
     const { data: user, isLoading } = useQuery({
         queryKey: ["auth", "me"],
         queryFn: api.auth.me,
@@ -48,3 +87,4 @@ export default function App() {
         </Routes>
     );
 }
+

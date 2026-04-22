@@ -134,6 +134,15 @@ export default function PatientFile({ user }: PatientFileProps) {
                                 <InfoRow label="Marital Status" value={patient.maritalStatus} />
                                 <InfoRow label="Total Visits" value={patient.visitCount?.toString()} />
                             </dl>
+                            {patient.insurance && (
+                                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-2">
+                                    <span className="text-xl">🛡️</span>
+                                    <div>
+                                        <p className="text-xs font-semibold text-blue-500 uppercase">Insurance</p>
+                                        <p className="text-lg font-bold text-blue-800">{patient.insurance}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Allergies & Chronic Conditions */}
@@ -1432,6 +1441,18 @@ function PatientEditDialog({
     const [chronicConditions, setChronicConditions] = useState(
         patient.chronicConditions || ""
     );
+    const [insurance, setInsurance] = useState(patient.insurance || "");
+    const [insuranceSuggestions, setInsuranceSuggestions] = useState<string[]>([]);
+    const [showInsuranceSuggestions, setShowInsuranceSuggestions] = useState(false);
+
+    const fetchInsuranceSuggestions = async (q: string) => {
+        if (q.length < 1) { setInsuranceSuggestions([]); return; }
+        try {
+            const results = await api.patients.insuranceSuggestions(q);
+            setInsuranceSuggestions(results);
+            setShowInsuranceSuggestions(results.length > 0);
+        } catch { setInsuranceSuggestions([]); }
+    };
 
     const updatePatientMutation = useMutation({
         mutationFn: async () => {
@@ -1445,6 +1466,7 @@ function PatientEditDialog({
                 maritalStatus,
                 allergies,
                 chronicConditions,
+                insurance,
             });
         },
         onSuccess: onSaved,
@@ -1562,6 +1584,41 @@ function PatientEditDialog({
                             onChange={(e) => setChronicConditions(e.target.value)}
                             className="w-full border-red-200 bg-red-50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-red-500"
                         />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-blue-600 mb-1">
+                            🛡️ Insurance / Assurance
+                        </label>
+                        <input
+                            type="text"
+                            value={insurance}
+                            onChange={(e) => {
+                                setInsurance(e.target.value);
+                                fetchInsuranceSuggestions(e.target.value);
+                            }}
+                            onFocus={() => insurance && fetchInsuranceSuggestions(insurance)}
+                            onBlur={() => setTimeout(() => setShowInsuranceSuggestions(false), 200)}
+                            placeholder="e.g. daman, taawniye, moasaset shahid..."
+                            className="w-full border-blue-200 bg-blue-50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {showInsuranceSuggestions && insuranceSuggestions.length > 0 && (
+                            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                {insuranceSuggestions.map((s, i) => (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm font-medium text-gray-700 transition"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                            setInsurance(s);
+                                            setShowInsuranceSuggestions(false);
+                                        }}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="flex justify-end gap-3 mt-6">

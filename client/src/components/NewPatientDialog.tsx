@@ -21,8 +21,20 @@ export default function NewPatientDialog({
         phone: initialData?.phone || "",
         city: initialData?.city || "",
         maritalStatus: initialData?.maritalStatus || "",
+        insurance: initialData?.insurance || "",
     });
     const [error, setError] = useState("");
+    const [insuranceSuggestions, setInsuranceSuggestions] = useState<string[]>([]);
+    const [showInsuranceSuggestions, setShowInsuranceSuggestions] = useState(false);
+
+    const fetchInsuranceSuggestions = async (q: string) => {
+        if (q.length < 1) { setInsuranceSuggestions([]); return; }
+        try {
+            const results = await api.patients.insuranceSuggestions(q);
+            setInsuranceSuggestions(results);
+            setShowInsuranceSuggestions(results.length > 0);
+        } catch { setInsuranceSuggestions([]); }
+    };
 
     const mutation = useMutation({
         mutationFn: () => api.patients.create(form),
@@ -150,6 +162,42 @@ export default function NewPatientDialog({
                                     <option value="Widowed">Widowed</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div className="relative">
+                            <label className="block text-lg font-semibold text-blue-600 mb-2">
+                                🛡️ Insurance / Assurance
+                            </label>
+                            <input
+                                type="text"
+                                value={form.insurance}
+                                onChange={(e) => {
+                                    updateField("insurance", e.target.value);
+                                    fetchInsuranceSuggestions(e.target.value);
+                                }}
+                                onFocus={() => form.insurance && fetchInsuranceSuggestions(form.insurance)}
+                                onBlur={() => setTimeout(() => setShowInsuranceSuggestions(false), 200)}
+                                placeholder="e.g. daman, taawniye, moasaset shahid..."
+                                className="w-full border-2 border-blue-200 bg-blue-50 rounded-xl px-4 py-3 text-xl focus:border-blue-500 outline-none"
+                            />
+                            {showInsuranceSuggestions && insuranceSuggestions.length > 0 && (
+                                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                    {insuranceSuggestions.map((s, i) => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-lg font-medium text-gray-700 transition"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                                updateField("insurance", s);
+                                                setShowInsuranceSuggestions(false);
+                                            }}
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {error && (
